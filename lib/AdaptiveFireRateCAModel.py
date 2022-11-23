@@ -4,7 +4,7 @@ import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
 from math import floor
-from lib.utils_vis import make_circle_masks
+from lib.utils_vis import make_circle_masks, damage_batch
 from lib.utils import debug
 
     
@@ -129,9 +129,7 @@ class AdaptiveFireRateCAModel(nn.Module):
         
         # apply damage
         if n == damage_at_step:
-            damage = 1.0-make_circle_masks(damaged_in_batch, self.img_size, self.img_size, damage_location)[..., None]
-            damage = torch.from_numpy(damage).to(self.device)
-            x[:damaged_in_batch]*=damage
+            x = damage_batch(x, self.device, img_size = self.img_size, damage_location=damage_location , damaged_in_batch = damaged_in_batch)
 
         # append tensors
         p_steps.append(p_n)
