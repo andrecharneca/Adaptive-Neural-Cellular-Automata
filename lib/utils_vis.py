@@ -48,6 +48,11 @@ def make_seed(shape, n_channels):
     return seed
 
 def make_circle_masks(n, h, w, location='random'):
+    """
+    Make a n circular masks at location, to be applied to image of size (h,w)
+    """
+    assert location in ['random', 'center', 'head', 'leg1', 'tail'] 
+
     x = np.linspace(-1.0, 1.0, w)[None, None, :]
     y = np.linspace(-1.0, 1.0, h)[None, :, None]
     if location=='random':
@@ -63,3 +68,16 @@ def make_circle_masks(n, h, w, location='random'):
     x, y = (x-center[0])/r, (y-center[1])/r
     mask = (x*x+y*y < 1.0).astype(np.float32)
     return mask
+
+def damage_batch(x_batch, device, img_size = 72, damage_location = 'random', damaged_in_batch = 1):
+  """
+  Apply circular damage to some images in the batch, at the given location.
+
+  x_batch.shape = (batch_size, img_size, img_size, channels_n)
+  """
+
+  damage = 1.0-make_circle_masks(damaged_in_batch, img_size, img_size, damage_location)[..., None]
+  damage = torch.from_numpy(damage).to(device)
+  x_batch[:damaged_in_batch]*=damage
+
+  return x_batch
