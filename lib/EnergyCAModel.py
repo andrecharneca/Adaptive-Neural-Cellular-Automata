@@ -82,21 +82,18 @@ class EnergyCAModel(nn.Module):
         life_mask = (pre_life_mask & post_life_mask).float().to(self.device)
         x = x * life_mask
 
-        # we output the life_mask to be able to calculate the loss only at the alive cells
-        return x.transpose(1,3), fireRates, life_mask
+        return x.transpose(1,3), fireRates
 
     def forward(self, x, steps=1, angle=0.0, damage_at_step=-1, damage_location='random', damaged_in_batch=1):
         x_steps = []
         fireRates_steps = []
-        life_mask_steps = []
         for step in range(steps):
             # apply damage
             if step == damage_at_step:
                 x = damage_batch(x, self.device,img_size = 72, damage_location = damage_location, damaged_in_batch = damaged_in_batch   )
 
-            x, fireRates, life_mask = self.update(x, angle)                
+            x, fireRates = self.update(x, angle)                
             x_steps.append(x)
             fireRates_steps.append(fireRates)
-            life_mask_steps.append(life_mask)
-
-        return torch.stack(x_steps), torch.stack(fireRates_steps), torch.stack(life_mask_steps)
+            
+        return torch.stack(x_steps), torch.stack(fireRates_steps)

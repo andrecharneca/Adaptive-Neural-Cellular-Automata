@@ -49,6 +49,12 @@ def load_emoji(index, path="data/emoji.png"):
     emoji = np.array(im[:, index*40:(index+1)*40].astype(np.float32))
     emoji /= 255.0
     return emoji
+  
+def load_lizard(path="data/lizard_clean.png"):
+    im = imageio.imread(path)
+    im = np.array(im.astype(np.float32))
+    im /= 255.0
+    return im
 
 def visualize_batch_ponder(x0, x, n_steps):
   '''
