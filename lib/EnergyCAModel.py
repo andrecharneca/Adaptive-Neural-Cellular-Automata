@@ -3,9 +3,10 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
-from lib.utils import debug
+from lib.utils import debug, plot_loss_reg_rec
 from lib.utils_vis import make_circle_masks, damage_batch
-
+from lib.utils_vis import to_rgb
+import matplotlib.pyplot as plt
 
 class EnergyCAModel(nn.Module):
     def __init__(self, channel_n, device, hidden_size=128):
@@ -82,7 +83,7 @@ class EnergyCAModel(nn.Module):
         life_mask = (pre_life_mask & post_life_mask).float().to(self.device)
         x = x * life_mask
 
-        return x.transpose(1,3), fireRates
+        return x.transpose(1,3), fireRates.squeeze(-1)
 
     def forward(self, x, steps=1, angle=0.0, damage_at_step=-1, damage_location='random', damaged_in_batch=1):
         x_steps = []
@@ -97,3 +98,96 @@ class EnergyCAModel(nn.Module):
             fireRates_steps.append(fireRates)
             
         return torch.stack(x_steps), torch.stack(fireRates_steps)
+
+
+
+def EnergyCAModelTrainer(ca, x, target, steps, optimizer, scaler=None,
+                        global_params=None, training_params=None, model_params=None):
+
+    # create decreasing fireRates from MIN->MAX_FIRERATE (right now with fixed steps)
+    if model_params['DECAY_TYPE'] == 'Exponential':
+        decay_map = torch.from_numpy(np.exp(np.linspace(np.log(model_params['MAX_FIRERATE']),np.log(model_params['MIN_FIRERATE']), global_params['MAX_STEPS']))).to(ca.device)
+    elif model_params['DECAY_TYPE'] == 'Linear':
+        decay_map = torch.from_numpy(np.linspace(model_params['MAX_FIRERATE'], model_params['MIN_FIRERATE'], global_params['MAX_STEPS']))
+    elif model_params['DECAY_TYPE'] == 'None':
+        decay_map = torch.ones(global_params['MAX_STEPS']) * model_params['CONST_FIRERATE']
+
+    optimizer.zero_grad(set_to_none=True)
+
+    #with autocast, the dx's become nan for some reason
+    x_steps, fireRates_steps = ca(x, steps=steps)
+    x_final = x_steps[-1,:,:,:,:4]
+    decay_map = decay_map[0:steps].to(ca.device)
+    
+    # compute the loss on the live cells
+    goal_fireRate_tensor = torch.einsum("i,ijkl -> ijkl", decay_map, torch.ones(fireRates_steps.shape, device=ca.device))
+
+    # loss computation
+    loss_rec_val = F.mse_loss(x_final, target)
+    loss_energy_val = model_params['BETA_ENERGY'] * torch.mean(torch.square(fireRates_steps-goal_fireRate_tensor).sum(dim=[0,2,3]))
+    loss = loss_rec_val + loss_energy_val
+
+    if 0:
+          debug(
+              "life_mask_steps.shape",
+          )
+          
+    loss.backward()
+    optimizer.step()
+
+    return {"x_steps": x_steps, "loss": loss.item(), "loss_rec_val": loss_rec_val.item(), "loss_energy_val": loss_energy_val.item(), "fireRates_steps": fireRates_steps}
+
+
+def EnergyCAModelVisualizer(output_dict, loss_logs, fig_path, progress_steps = 8):
+    '''
+      View batch initial seed, batch final state, and progression of fireRates
+    of the 1st batch item
+    '''
+    x = output_dict['x_steps'].detach().cpu().numpy()
+    fireRates_steps = output_dict['fireRates_steps'].detach().cpu().numpy()
+
+    vis_final = to_rgb(x[-1])
+    vis_batch0 = to_rgb(x[:,0])
+    max_steps = x.shape[0]
+
+    plt.figure(figsize=[25,12])
+    n_cols = max(x.shape[1], progress_steps)
+    n_rows = 4
+
+    # final states
+    for i in range(vis_final.shape[0]):
+      plt.subplot(n_rows,n_cols,i+1)
+      plt.imshow(vis_final[i])
+      plt.text(0,0, "n_final="+str(max_steps))
+      plt.axis('off')
+
+    # visualize evolution of first in batch
+    for i in range(progress_steps):
+      plt.subplot(n_rows, n_cols, i+1+n_cols)
+      plt.imshow(vis_batch0[max_steps//progress_steps * (i+1)-1])
+      plt.text(0,0, "step="+str(max_steps//progress_steps * (i+1)-1))
+      plt.axis('off')
+
+    # visualize fireRates
+    for i in range(progress_steps):
+      plt.subplot(n_rows, n_cols, i+1+2*n_cols)
+      plt.imshow(fireRates_steps[max_steps//progress_steps * (i+1)-1,0])
+      plt.text(0,0, "fireRates step="+str(max_steps//progress_steps * (i+1)-1))
+      plt.axis('off')
+      plt.colorbar()
+    
+    # visualize loss
+    plt.subplot(n_rows, 3, 3*n_rows-2)
+    plt.plot(np.log10(loss_logs['loss']),  '.', alpha=0.2)
+    plt.title('loss')
+
+    plt.subplot(n_rows, 3, 3*n_rows-1)
+    plt.plot(np.log10(loss_logs['loss_energy_val']), 'g.', alpha=0.2)
+    plt.title('loss_energy_val')
+
+    plt.subplot(n_rows, 3, 3*n_rows)
+    plt.plot(np.log10(loss_logs['loss_rec_val']), 'r.', alpha=0.2)
+    plt.title('loss_rec_val')
+
+    # save figure
+    plt.savefig(fig_path)

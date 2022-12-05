@@ -73,3 +73,22 @@ class CAModel(nn.Module):
         for step in range(steps):
             x = self.update(x, fire_rate, angle)
         return x
+
+def CAModelTrainer(ca, x, target, steps, optimizer, scaler, 
+                global_params=None, training_params=None, model_params=None):
+    """
+    Trains CAModel for 1 epoch
+    """
+    optimizer.zero_grad(set_to_none=True)
+
+    with torch.cuda.amp.autocast():
+        x = ca(x, steps=steps)
+        loss = F.mse_loss(x[:, :, :, :4], target)
+
+    # Using gradient scaling bc of float16 precision
+    scaler.scale(loss).backward()
+    scaler.step(optimizer)
+    scaler.update()
+
+    return {"x": x, "loss": loss}
+

@@ -7,6 +7,8 @@ from lib.utils_vis import to_rgb
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation, ArtistAnimation
 from IPython.display import HTML
+import GPUtil
+
 
 def tup_distance(node1, node2, mode="Euclidean"):
     """
@@ -239,3 +241,19 @@ def animate_steps(*arr_steps, colorbar_plots=None, interval=40):
   anim = ArtistAnimation(fig, frames, interval=interval, blit=True)
   plt.close()
   return HTML(anim.to_html5_video())
+
+
+def get_free_gpu():
+    # get the gpu with the most free memory
+    print("Getting free GPU...")
+    GPUtil.showUtilization()
+    GPUs = GPUtil.getGPUs()
+
+    # return first GPU with more than 90% free memory
+    for gpu in GPUs:
+        if gpu.memoryFree > 0.9 * gpu.memoryTotal:
+            print("Using GPU: ", gpu.id)
+            return gpu.id
+    else:
+      # throw error
+      raise Exception("No GPU with more than 90% free memory found")
