@@ -4,8 +4,7 @@ import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
 from lib.utils import debug, plot_loss_reg_rec
-from lib.utils_vis import make_circle_masks, damage_batch
-from lib.utils_vis import to_rgb
+from lib.utils_vis import make_circle_masks, damage_batch, to_rgb
 import matplotlib.pyplot as plt
 
 class EnergyCAModel(nn.Module):

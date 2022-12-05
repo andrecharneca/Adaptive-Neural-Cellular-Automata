@@ -3,6 +3,9 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
+from lib.utils_vis import to_rgb
+import matplotlib.pyplot as plt
+
 
 class CAModel(nn.Module):
     def __init__(self, channel_n, fire_rate, device, hidden_size=128):
@@ -90,5 +93,32 @@ def CAModelTrainer(ca, x, target, steps, optimizer, scaler,
     scaler.step(optimizer)
     scaler.update()
 
-    return {"x": x, "loss": loss}
+    return {"x": x, "loss": loss.item()}
 
+
+def CAModelVisualizer(output_dict, loss_logs, fig_path):
+    '''
+      View batch final state, and loss
+    '''
+    x = output_dict['x'].detach().cpu().numpy()
+
+    vis_final = to_rgb(x)
+
+    plt.figure(figsize=[25,12])
+    n_cols = x.shape[0]
+    n_rows = 2
+
+    # final states
+    for i in range(vis_final.shape[0]):
+      plt.subplot(n_rows,n_cols,i+1)
+      plt.imshow(vis_final[i])
+      plt.text(0,0, "final")
+      plt.axis('off')
+    
+    # visualize loss
+    plt.subplot(n_rows, 3, 3*n_rows-2)
+    plt.plot(np.log10(loss_logs['loss']),  '.', alpha=0.2)
+    plt.title('loss')
+
+    # save figure
+    plt.savefig(fig_path)
