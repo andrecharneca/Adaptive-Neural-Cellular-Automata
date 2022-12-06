@@ -25,7 +25,7 @@ global_params = {
 training_params = {
     'lr': 2e-3,
     'betas': (0.5, 0.5),
-    'n_epoch': 8000,
+    'n_epoch': 16000,
     'batch_size': 8,
     'device': torch.device('cuda:{}'.format(get_free_gpu()) if torch.cuda.is_available() else 'cpu'),
     'history_save_dir': 'histories/',
