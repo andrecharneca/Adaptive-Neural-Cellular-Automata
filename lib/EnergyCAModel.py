@@ -63,9 +63,8 @@ class EnergyCAModel(nn.Module):
         fireRates = torch.sigmoid(self.fireRate_layer(dx)) * pre_life_mask.transpose(1,3)
 
         # gumbel softmax requires probs for each class, and log probs
-        fireRates_gumbel = torch.concat([fireRates, 1-fireRates], dim=1)
+        fireRates_gumbel = torch.concat([fireRates, 1-fireRates], dim=-1)
         log_fireRates_gumbel = torch.log(fireRates_gumbel + 1e-10)
-        debug("log_fireRates_gumbel.shape")
 
         dx = self.fc0(dx)
         dx = F.relu(dx)
@@ -76,9 +75,8 @@ class EnergyCAModel(nn.Module):
         #debug("fireRates.min()", "fireRates.max()", "dx.max()", "dx.min()")
         dx = self.fc1(dx)
 
-        # stochastic cell updates
-        update_grid = F.gumbel_softmax(log_fireRates_gumbel, tau=1, hard=True, dim=-1)
-        debug("update_grid.shape")
+        # stochastic cell updates with gumbel softmax (for differentiable fireRates)
+        update_grid = F.gumbel_softmax(log_fireRates_gumbel, tau=1, hard=True, dim=-1)[..., 0].unsqueeze(-1) # 0 is the fireRate class
         dx = dx * update_grid
 
         x = x+dx.transpose(1,3)
@@ -129,7 +127,7 @@ def EnergyCAModelTrainer(ca, x, target, steps, optimizer, scaler=None,
 
     # loss computation
     loss_rec_val = F.mse_loss(x_final, target)
-    loss_energy_val = 0#model_params['BETA_ENERGY'] * torch.mean(torch.square(fireRates_steps-goal_fireRate_tensor).sum(dim=[0,2,3]))
+    loss_energy_val = torch.tensor(0)#model_params['BETA_ENERGY'] * torch.mean(torch.square(fireRates_steps-goal_fireRate_tensor).sum(dim=[0,2,3]))
     loss = loss_rec_val# + loss_energy_val
 
     if 0:

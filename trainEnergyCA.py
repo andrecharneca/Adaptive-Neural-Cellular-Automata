@@ -29,7 +29,7 @@ training_params = {
     'batch_size': 8,
     'device': torch.device('cuda:{}'.format(get_free_gpu()) if torch.cuda.is_available() else 'cpu'),
     'history_save_dir': 'histories/',
-    'model_save_dir': 'models/',
+    'model_save_dir': 'models/test/', ###
 }
 
 ## Model Parameters ##
@@ -71,8 +71,8 @@ for beta_energy in beta_energies:
         ca = EnergyCAModel(global_params['CHANNEL_N'], training_params['device'])
 
         optimizer = optim.Adam(ca.parameters(), lr=training_params['lr'], betas=training_params['betas'])
-        model_name = f"EnergyCA_{energyca_params['DECAY_TYPE']}Decay_minFireRate{energyca_params['MIN_FIRERATE']:.0e}_maxFireRate{energyca_params['MAX_FIRERATE']:.0e}_betaEnergy{energyca_params['BETA_ENERGY']:.0e}_minSteps{global_params['MIN_STEPS']}_maxSteps{global_params['MAX_STEPS']}"
-
+        #model_name = f"EnergyCA_{energyca_params['DECAY_TYPE']}Decay_minFireRate{energyca_params['MIN_FIRERATE']:.0e}_maxFireRate{energyca_params['MAX_FIRERATE']:.0e}_betaEnergy{energyca_params['BETA_ENERGY']:.0e}_minSteps{global_params['MIN_STEPS']}_maxSteps{global_params['MAX_STEPS']}"
+        model_name = "gumbel_softmax_test"
         ## Training ##
         print("Currently training:", model_name)
         train_ca(ca, EnergyCAModelTrainer, 
@@ -83,7 +83,7 @@ for beta_energy in beta_energies:
 
 
 # run this script with output to a file, and delete the previous output file
-# nohup python train.py > train.log 2>&1 &
+# nohup python trainEnergyCA.py > trainEnergyCA.log 2>&1 &
 
 # delete every file in models/, histories/, and figs/
 # rm -rf models/* histories/* figs/*
