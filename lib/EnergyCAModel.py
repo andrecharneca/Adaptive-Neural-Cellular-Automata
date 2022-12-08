@@ -62,6 +62,11 @@ class EnergyCAModel(nn.Module):
         # get fireRates with perception vector, fireRates of dead cells is = 0
         fireRates = torch.sigmoid(self.fireRate_layer(dx)) * pre_life_mask.transpose(1,3)
 
+        # gumbel softmax requires probs for each class, and log probs
+        fireRates_gumbel = torch.concat([fireRates, 1-fireRates], dim=1)
+        log_fireRates_gumbel = torch.log(fireRates_gumbel + 1e-10)
+        debug("log_fireRates_gumbel.shape")
+
         dx = self.fc0(dx)
         dx = F.relu(dx)
 
@@ -72,7 +77,8 @@ class EnergyCAModel(nn.Module):
         dx = self.fc1(dx)
 
         # stochastic cell updates
-        update_grid = torch.bernoulli(fireRates).float().to(self.device)
+        update_grid = F.gumbel_softmax(log_fireRates_gumbel, tau=1, hard=True, dim=-1)
+        debug("update_grid.shape")
         dx = dx * update_grid
 
         x = x+dx.transpose(1,3)
@@ -116,15 +122,15 @@ def EnergyCAModelTrainer(ca, x, target, steps, optimizer, scaler=None,
     #with autocast, the dx's become nan for some reason
     x_steps, fireRates_steps = ca(x, steps=steps)
     x_final = x_steps[-1,:,:,:,:4]
-    decay_map = decay_map[0:steps].to(ca.device)
+    #decay_map = decay_map[0:steps].to(ca.device)
     
     # compute the loss on the live cells
-    goal_fireRate_tensor = torch.einsum("i,ijkl -> ijkl", decay_map, torch.ones(fireRates_steps.shape, device=ca.device))
+    #goal_fireRate_tensor = torch.einsum("i,ijkl -> ijkl", decay_map, torch.ones(fireRates_steps.shape, device=ca.device))
 
     # loss computation
     loss_rec_val = F.mse_loss(x_final, target)
-    loss_energy_val = model_params['BETA_ENERGY'] * torch.mean(torch.square(fireRates_steps-goal_fireRate_tensor).sum(dim=[0,2,3]))
-    loss = loss_rec_val + loss_energy_val
+    loss_energy_val = 0#model_params['BETA_ENERGY'] * torch.mean(torch.square(fireRates_steps-goal_fireRate_tensor).sum(dim=[0,2,3]))
+    loss = loss_rec_val# + loss_energy_val
 
     if 0:
           debug(
