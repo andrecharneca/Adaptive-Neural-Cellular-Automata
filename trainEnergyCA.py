@@ -25,11 +25,11 @@ global_params = {
 training_params = {
     'lr': 2e-3,
     'betas': (0.5, 0.5),
-    'n_epoch': 16000,
+    'n_epoch': 10000,
     'batch_size': 8,
     'device': torch.device('cuda:{}'.format(get_free_gpu()) if torch.cuda.is_available() else 'cpu'),
     'history_save_dir': 'histories/',
-    'model_save_dir': 'models/test/', ###
+    'model_save_dir': 'models/gumbel/', ###
 }
 
 ## Model Parameters ##
@@ -59,6 +59,7 @@ x0 = torch.from_numpy(x0.astype(np.float32)).to(training_params['device'])
 from lib.EnergyCAModel import EnergyCAModel, EnergyCAModelTrainer, EnergyCAModelVisualizer
 
 # Grid search hyperparameters
+"""
 beta_energies = [1e-7, 1e-6, 1e-5]
 min_fireRates = [0.01, 0.05, 0.1, 0.2]
 
@@ -72,14 +73,19 @@ for beta_energy in beta_energies:
 
         optimizer = optim.Adam(ca.parameters(), lr=training_params['lr'], betas=training_params['betas'])
         #model_name = f"EnergyCA_{energyca_params['DECAY_TYPE']}Decay_minFireRate{energyca_params['MIN_FIRERATE']:.0e}_maxFireRate{energyca_params['MAX_FIRERATE']:.0e}_betaEnergy{energyca_params['BETA_ENERGY']:.0e}_minSteps{global_params['MIN_STEPS']}_maxSteps{global_params['MAX_STEPS']}"
-        model_name = "gumbel_softmax_test"
-        ## Training ##
-        print("Currently training:", model_name)
-        train_ca(ca, EnergyCAModelTrainer, 
-                x0, pad_target, 
-                optimizer, model_name, 
-                global_params=global_params, training_params=training_params, model_params=energyca_params,
-                Visualizer = EnergyCAModelVisualizer, visualize_step=100, figs_dir='figs/')
+"""        
+
+ca = EnergyCAModel(global_params['CHANNEL_N'], training_params['device'])
+optimizer = optim.Adam(ca.parameters(), lr=training_params['lr'], betas=training_params['betas'])
+model_name = "EnergyCA_gumbel_NoEnergyLoss"
+
+## Training ##
+print("Currently training:", model_name)
+train_ca(ca, EnergyCAModelTrainer, 
+        x0, pad_target, 
+        optimizer, model_name, 
+        global_params=global_params, training_params=training_params, model_params=energyca_params,
+        Visualizer = EnergyCAModelVisualizer, visualize_step=100, figs_dir='figs/')
 
 
 # run this script with output to a file, and delete the previous output file
