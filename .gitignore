@@ -6,3 +6,4 @@ models/*/*.pth
 figs/*.png
 test_losses/*.csv
 histories/*.csv
+!**/.gitkeep
