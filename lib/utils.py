@@ -43,7 +43,7 @@ def debug(*args, same_line=False):
         print(var, '=', repr(eval(var, frame.f_globals, frame.f_locals)), end='; ')
       else:
         print(var, '=', repr(eval(var, frame.f_globals, frame.f_locals)))
-    if same_line: print('\n')
+    #if same_line: print('\n')
     
 
 def load_emoji(index, path="data/emoji.png"):
@@ -210,7 +210,7 @@ def plot_avg_steps(avg_steps_log):
 
 def animate_steps(*arr_steps, colorbar_plots=None, interval=40):
   ''' 
-  Input: arrays to animate. List of indexes of the plots that need colorbars.
+  Input: arrays to animate. List of indexes of the plots that need colorbars. It'll only show the first batch item
   arr_steps[i].shape = (max_steps, batch_size, img_size, img_size) 
   colorbar_plots = list of indexes of the plots with colorbars (assuming values go between 0 and 1)
   '''

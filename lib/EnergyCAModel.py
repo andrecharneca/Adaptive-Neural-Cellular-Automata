@@ -18,8 +18,8 @@ class EnergyCAModel(nn.Module):
         self.fc1 = nn.Linear(hidden_size, channel_n, bias=False)
 
         # receives the perception vector and outputs mapping of fireRates
-        #self.fireRate_layer = nn.Linear(hidden_size, 1)# do this if input=hidden state
-        self.fireRate_layer = nn.Linear(channel_n*3, 1, bias=False) #else the input is the perception vector
+        self.fireRate_layer = nn.Linear(hidden_size, 1)# do this if input=hidden state
+        #self.fireRate_layer = nn.Linear(channel_n*3, 1, bias=True) #else the input is the perception vector
         with torch.no_grad():
             self.fc1.weight.zero_()
             self.fireRate_layer.weight.zero_()
@@ -60,23 +60,27 @@ class EnergyCAModel(nn.Module):
         dx = self.perceive(x, angle)
         dx = dx.transpose(1,3)
         # get fireRates with perception vector, fireRates of dead cells is = 0
-        fireRates = torch.sigmoid(self.fireRate_layer(dx)) * pre_life_mask.transpose(1,3)
-
-        # gumbel softmax requires probs for each class, and log probs
-        fireRates_gumbel = torch.concat([fireRates, 1-fireRates], dim=-1)
-        log_fireRates_gumbel = torch.log(fireRates_gumbel + 1e-10)
+        #fireRates = torch.sigmoid(self.fireRate_layer(dx)) * pre_life_mask.transpose(1,3)
 
         dx = self.fc0(dx)
-        dx = F.relu(dx)
+        dx = F.relu(dx) #hidden state
 
         # get fireRates with hidden state
-        #fireRates = torch.sigmoid(self.fireRate_layer(dx))
+        fireRates = torch.clamp(torch.sigmoid(self.fireRate_layer(dx)), min=1e-7, max=1-1e-7)
+        #debug("fireRates.min().item()", "fireRates.max().item()")
 
-        #debug("fireRates.min()", "fireRates.max()", "dx.max()", "dx.min()")
-        dx = self.fc1(dx)
+        # gumbel softmax requires log probs for each class
+        fireRates_gumbel = torch.concat([fireRates, 1-fireRates], dim=-1)
+        log_fireRates_gumbel = torch.log(fireRates_gumbel)
+        #debug("log_fireRates_gumbel.min().item()", "log_fireRates_gumbel.max().item()")
+
+        dx = torch.tanh(self.fc1(dx)) # update vector in the range [-1,1]
+        #debug("dx.min().item()", "dx.max().item()", same_line=True); print()
 
         # stochastic cell updates with gumbel softmax (for differentiable fireRates)
-        update_grid = F.gumbel_softmax(log_fireRates_gumbel, tau=1, hard=True, dim=-1)[..., 0].unsqueeze(-1) # 0 is the fireRate class
+        update_grid = F.gumbel_softmax(log_fireRates_gumbel, tau=0.1, hard=True, dim=-1)[..., 0].unsqueeze(-1).float() # 0 is the fireRate class
+        #update_grid = torch.bernoulli(fireRates)
+
         dx = dx * update_grid
 
         x = x+dx.transpose(1,3)
@@ -104,7 +108,7 @@ class EnergyCAModel(nn.Module):
 
 
 
-def EnergyCAModelTrainer(ca, x, target, steps, optimizer, scaler=None,
+def EnergyCAModelTrainer(ca, x, target, steps, optimizer, scaler=None, scheduler=None,
                         global_params=None, training_params=None, model_params=None):
 
     # create decreasing fireRates from MIN->MAX_FIRERATE (right now with fixed steps)
@@ -127,18 +131,37 @@ def EnergyCAModelTrainer(ca, x, target, steps, optimizer, scaler=None,
 
     # loss computation
     loss_rec_val = F.mse_loss(x_final, target)
-    loss_energy_val = torch.tensor(0)#model_params['BETA_ENERGY'] * torch.mean(torch.square(fireRates_steps-goal_fireRate_tensor).sum(dim=[0,2,3]))
-    loss = loss_rec_val# + loss_energy_val
+    loss_energy_val = model_params['BETA_ENERGY'] * torch.sum(torch.pow(fireRates_steps, 2))
 
-    if 0:
-          debug(
-              "life_mask_steps.shape",
-          )
-          
+    loss = loss_energy_val + loss_rec_val
+
+    if model_params['BETA_ENERGY'] == 0:
+        # because the plot is in log
+        loss_energy_val_for_plot = loss_rec_val.item()
+    else:
+        loss_energy_val_for_plot = loss_energy_val.item()
+
     loss.backward()
-    optimizer.step()
+    # apply gradient clipping
+    torch.nn.utils.clip_grad_norm_(ca.parameters(), training_params['grad_clip'])
 
-    return {"x_steps": x_steps, "loss": loss.item(), "loss_rec_val": loss_rec_val.item(), "loss_energy_val": loss_energy_val.item(), "fireRates_steps": fireRates_steps}
+    optimizer.step()
+    if scheduler is not None:
+        scheduler.step()
+
+    if 1: #debugging
+        # inspect model weights and gradients
+        for name, param in ca.named_parameters():
+            if param.requires_grad:
+                print("Param:",name)
+                print("\tVal (min, max):",param.data.min(), param.data.max())
+                print("\tGrad (min, max):",param.grad.min(), param.grad.max())
+            # stop if any weights or grads are NaN   
+            if torch.isnan(param.data).any() or torch.isnan(param.grad).any():
+                raise ValueError("NaN in weights or grads")
+
+
+    return {"x_steps": x_steps, "loss": loss.item(), "loss_rec_val": loss_rec_val.item(), "loss_energy_val": loss_energy_val_for_plot, "fireRates_steps": fireRates_steps}
 
 
 def EnergyCAModelVisualizer(output_dict, loss_logs, fig_path, progress_steps = 8):
@@ -180,17 +203,26 @@ def EnergyCAModelVisualizer(output_dict, loss_logs, fig_path, progress_steps = 8
       plt.colorbar()
     
     # visualize loss
+    # y_range is the min/max of the loss, loss_energy_val, and loss_rec_val
+    y_range = [
+        min(np.log10(loss_logs['loss']).min(), np.log10(loss_logs['loss_energy_val']).min(), np.log10(loss_logs['loss_rec_val']).min()),
+        max(np.log10(loss_logs['loss']).max(), np.log10(loss_logs['loss_energy_val']).max(), np.log10(loss_logs['loss_rec_val']).max())
+    ]
+
     plt.subplot(n_rows, 3, 3*n_rows-2)
     plt.plot(np.log10(loss_logs['loss']),  '.', alpha=0.2)
-    plt.title('loss')
+    plt.title('loss (log)')
+    plt.ylim(y_range)
 
     plt.subplot(n_rows, 3, 3*n_rows-1)
     plt.plot(np.log10(loss_logs['loss_energy_val']), 'g.', alpha=0.2)
-    plt.title('loss_energy_val')
+    plt.title('loss_energy_val (log)')
+    plt.ylim(y_range)
 
     plt.subplot(n_rows, 3, 3*n_rows)
     plt.plot(np.log10(loss_logs['loss_rec_val']), 'r.', alpha=0.2)
-    plt.title('loss_rec_val')
+    plt.title('loss_rec_val (log)')
+    plt.ylim(y_range)
 
     # save figure
     plt.savefig(fig_path)

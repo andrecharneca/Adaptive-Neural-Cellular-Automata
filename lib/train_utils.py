@@ -6,8 +6,8 @@ import os
 from lib.utils import debug
 import matplotlib.pyplot as plt
 
-def train_ca(ca, CATrainer, x0, target, optimizer, model_name, 
-            scaler=None, global_params=None, training_params=None, model_params=None,
+def train_ca(ca, CATrainer, x0, target,model_name, optimizer, scaler=None, scheduler = None,
+            global_params=None, training_params=None, model_params=None,
             Visualizer = None, visualize_step = 100, figs_dir = 'figs/'):
     """
     Train a CA model.
@@ -17,9 +17,10 @@ def train_ca(ca, CATrainer, x0, target, optimizer, model_name,
     n_epoch = training_params['n_epoch']
     
     for i in tqdm(range(n_epoch+1)):
-        output_dict = CATrainer(ca, x0, target, np.random.randint(global_params['MIN_STEPS'],global_params['MAX_STEPS']), optimizer, scaler, 
-                global_params=global_params, training_params=training_params, model_params=model_params)
-        
+        output_dict = CATrainer(ca, x0, target, np.random.randint(global_params['MIN_STEPS'],global_params['MAX_STEPS']), 
+                                optimizer, scaler=scaler, scheduler=scheduler,
+                                global_params=global_params, training_params=training_params, model_params=model_params)
+
         if i == 0:
             # initialize loss logs
             for key in output_dict.keys():

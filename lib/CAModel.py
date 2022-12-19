@@ -56,9 +56,11 @@ class CAModel(nn.Module):
         dx = self.fc0(dx)
         dx = F.relu(dx)
         dx = self.fc1(dx)
+        dx = torch.tanh(dx) # to keep values in [-1,1]
 
         if fire_rate is None:
             fire_rate=self.fire_rate
+
         # stochastic cell updates
         stochastic = torch.rand([dx.size(0),dx.size(1),dx.size(2),1])>fire_rate
         stochastic = stochastic.float().to(self.device)
@@ -77,21 +79,36 @@ class CAModel(nn.Module):
             x = self.update(x, fire_rate, angle)
         return x
 
-def CAModelTrainer(ca, x, target, steps, optimizer, scaler, 
+def CAModelTrainer(ca, x, target, steps, optimizer, scaler = None,scheduler=None,
                 global_params=None, training_params=None, model_params=None):
     """
     Trains CAModel for 1 epoch
     """
     optimizer.zero_grad(set_to_none=True)
 
-    with torch.cuda.amp.autocast():
+    if scaler is not None:
+        with torch.cuda.amp.autocast():
+            x = ca(x, steps=steps)
+            loss = F.mse_loss(x[:, :, :, :4], target)
+
+        scaler.scale(loss).backward()
+
+        # apply gradient clipping
+        scaler.unscale_(optimizer)
+        torch.nn.utils.clip_grad_norm_(ca.parameters(), training_params['grad_clip'])
+        scaler.step(optimizer)
+        scaler.update()
+        if scheduler is not None:
+            scheduler.step()
+    else:
         x = ca(x, steps=steps)
         loss = F.mse_loss(x[:, :, :, :4], target)
-
-    # Using gradient scaling bc of float16 precision
-    scaler.scale(loss).backward()
-    scaler.step(optimizer)
-    scaler.update()
+        loss.backward()
+        # apply gradient clipping
+        torch.nn.utils.clip_grad_norm_(ca.parameters(), training_params['grad_clip'])
+        optimizer.step()
+        if scheduler is not None:
+            scheduler.step()
 
     return {"x": x, "loss": loss.item()}
 

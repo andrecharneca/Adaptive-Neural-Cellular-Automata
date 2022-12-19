@@ -24,14 +24,15 @@ global_params = {
 # choose cuda device with the least amount of current memory usage
 training_params = {
     'lr': 2e-3,
+    'lr_gamma': 0.9999,
     'betas': (0.5, 0.5),
-    'n_epoch': 16000,
+    'n_epoch': 10000,
     'batch_size': 8,
+    'grad_clip': 1.0,
     'device': torch.device('cuda:{}'.format(get_free_gpu()) if torch.cuda.is_available() else 'cpu'),
     'history_save_dir': 'histories/',
-    'model_save_dir': 'models/',
+    'model_save_dir': 'models/no_gumbel/', ###
 }
-
 ## Model Parameters ##
 ca_params = {"CELL_FIRE_RATE": 0.5}
 
@@ -55,19 +56,20 @@ from lib.CAModel import CAModel, CAModelTrainer, CAModelVisualizer
 # Initialize model
 ca = CAModel(global_params["CHANNEL_N"], ca_params['CELL_FIRE_RATE'], training_params["device"])
 optimizer = optim.Adam(ca.parameters(), lr=training_params['lr'], betas=training_params['betas'])
-model_name = "CA"
+model_name = f"CA_constFireRate{ca_params['CELL_FIRE_RATE']:.0e}"
+scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=training_params['lr_gamma'])
 scaler = torch.cuda.amp.GradScaler()
 
 ## Training ##
 print("Currently training:", model_name)
 train_ca(ca, CAModelTrainer, 
-        x0, pad_target, 
-        optimizer, model_name, scaler=scaler,
+        x0, pad_target, model_name,
+        optimizer, scheduler=scheduler,
         global_params=global_params, training_params=training_params, model_params=ca_params,
         Visualizer = CAModelVisualizer, visualize_step=100, figs_dir='figs/')
 
 # run this script with output to a file, and delete the previous output file
-# nohup python train.py > train.log 2>&1 &
+# nohup python trainCA.py > trainCA.log 2>&1 &
 
 # delete every file in models/, histories/, and figs/
 # rm -rf models/* histories/* figs/*
