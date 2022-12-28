@@ -70,7 +70,7 @@ def make_circle_masks(n, h, w, location='random'):
         r = np.ones([n, 1, 1])*0.25
     elif location=='center':
         center[0] = -0.1; center[1] = 0.
-        r = np.ones([n, 1, 1])*0.2
+        r = np.ones([n, 1, 1])*0.12
     x, y = (x-center[0])/r, (y-center[1])/r
     mask = (x*x+y*y < 1.0).astype(np.float32)
     return mask

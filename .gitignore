@@ -1,9 +1,12 @@
 */*.pyc
 *.pyc
+*.*.pyc
 *.log
 models/*.pth
 models/*/*.pth
 figs/*.png
 test_losses/*.csv
+test_losses/*/*.csv
+damage_losses/*/*.csv
 histories/*.csv
 !**/.gitkeep

@@ -89,45 +89,40 @@ class EnergyCAModel(nn.Module):
         post_life_mask = self.alive(x)
         life_mask = (pre_life_mask & post_life_mask).float().to(self.device)
         x = x * life_mask
+        update_grid = (update_grid * life_mask.transpose(1,3)).type(torch.bool)
+        return x.transpose(1,3), fireRates.squeeze(-1), update_grid.squeeze(-1)
 
-        return x.transpose(1,3), fireRates.squeeze(-1)
-
-    def forward(self, x, steps=1, angle=0.0, damage_at_step=-1, damage_location='random', damaged_in_batch=1):
+    def forward(self, x, steps=1, angle=0.0, damage_at_step=-1, damage_location='random', damaged_in_batch=1, get_update_grid=False):
         x_steps = []
         fireRates_steps = []
+        update_grid_steps = []
         for step in range(steps):
             # apply damage
             if step == damage_at_step:
-                x = damage_batch(x, self.device,img_size = 72, damage_location = damage_location, damaged_in_batch = damaged_in_batch   )
+                x = damage_batch(x, self.device,img_size = x.shape[-2], damage_location = damage_location, damaged_in_batch = damaged_in_batch   )
 
-            x, fireRates = self.update(x, angle)                
+            x, fireRates, update_grid = self.update(x, angle) 
             x_steps.append(x)
             fireRates_steps.append(fireRates)
-            
-        return torch.stack(x_steps), torch.stack(fireRates_steps)
+
+            if get_update_grid:
+                update_grid_steps.append(update_grid)
+        
+        if get_update_grid:
+            return torch.stack(x_steps), torch.stack(fireRates_steps), torch.stack(update_grid_steps)
+        else:
+            return torch.stack(x_steps), torch.stack(fireRates_steps)
 
 
 
 def EnergyCAModelTrainer(ca, x, target, steps, optimizer, scaler=None, scheduler=None,
                         global_params=None, training_params=None, model_params=None):
 
-    # create decreasing fireRates from MIN->MAX_FIRERATE (right now with fixed steps)
-    if model_params['DECAY_TYPE'] == 'Exponential':
-        decay_map = torch.from_numpy(np.exp(np.linspace(np.log(model_params['MAX_FIRERATE']),np.log(model_params['MIN_FIRERATE']), global_params['MAX_STEPS']))).to(ca.device)
-    elif model_params['DECAY_TYPE'] == 'Linear':
-        decay_map = torch.from_numpy(np.linspace(model_params['MAX_FIRERATE'], model_params['MIN_FIRERATE'], global_params['MAX_STEPS']))
-    elif model_params['DECAY_TYPE'] == 'None':
-        decay_map = torch.ones(global_params['MAX_STEPS']) * model_params['CONST_FIRERATE']
-
     optimizer.zero_grad(set_to_none=True)
 
     #with autocast, the dx's become nan for some reason
     x_steps, fireRates_steps = ca(x, steps=steps)
     x_final = x_steps[-1,:,:,:,:4]
-    #decay_map = decay_map[0:steps].to(ca.device)
-    
-    # compute the loss on the live cells
-    #goal_fireRate_tensor = torch.einsum("i,ijkl -> ijkl", decay_map, torch.ones(fireRates_steps.shape, device=ca.device))
 
     # loss computation
     loss_rec_val = F.mse_loss(x_final, target)
@@ -149,7 +144,7 @@ def EnergyCAModelTrainer(ca, x, target, steps, optimizer, scaler=None, scheduler
     if scheduler is not None:
         scheduler.step()
 
-    if 1: #debugging
+    if 0: #debugging
         # inspect model weights and gradients
         for name, param in ca.named_parameters():
             if param.requires_grad:

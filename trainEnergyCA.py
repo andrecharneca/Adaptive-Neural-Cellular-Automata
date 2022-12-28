@@ -24,7 +24,7 @@ global_params = {
     'TARGET_SIZE': 40,
     'IMG_SIZE': 72,
     'MIN_STEPS': 64,
-    'MAX_STEPS': 96,
+    'MAX_STEPS': 128,#96,
 }
 
 ## General Training Parameters ##
@@ -38,16 +38,12 @@ training_params = {
     'grad_clip': 1.0,
     'device': torch.device('cuda:{}'.format(get_free_gpu()) if torch.cuda.is_available() else 'cpu'),
     'history_save_dir': 'histories/',
-    'model_save_dir': 'models/gumbel/', ###
+    'model_save_dir': 'models/gumbel_maxSteps{}/'.format(global_params["MAX_STEPS"]), ###
 }
 
 ## Model Parameters ##
 energyca_params = {
     "BETA_ENERGY": 1e-7,
-    "MIN_FIRERATE": 0.05,
-    "MAX_FIRERATE": 0.8,
-    "CONST_FIRERATE": 0.5, # if DECAY_TYPE = 'None'
-    "DECAY_TYPE": 'Exponential', # ['Linear', 'Exponential' or 'None']
 }
 
 ## Training Initialization ##
@@ -68,13 +64,13 @@ x0 = torch.from_numpy(x0.astype(np.float32)).to(training_params['device'])
 from lib.EnergyCAModel import EnergyCAModel, EnergyCAModelTrainer, EnergyCAModelVisualizer
     
 # grid search on beta_energy
-beta_energies = [0, 1e-9, 2e-9, 3e-9, 4e-9, 5e-9, 1e-8, 1e-7]
+beta_energies = [2e-10,5e-10]#[0,5e-10, 1e-9, 2e-9, 3e-9, 4e-9, 5e-9, 1e-8, 1e-7]
 for beta_energy in beta_energies:
     energyca_params['BETA_ENERGY'] = beta_energy
     ca = EnergyCAModel(global_params['CHANNEL_N'], training_params['device'])
     optimizer = optim.Adam(ca.parameters(), lr=training_params['lr'], betas=training_params['betas'], weight_decay=1e-5) #some weight decay to avoid exploding weights
     scheduler = optim.lr_scheduler.ExponentialLR(optimizer, training_params['lr_gamma'])
-    model_name = f"EnergyCA_gumbel_EnergyLoss_betaEnergy{energyca_params['BETA_ENERGY']:.0e}"
+    model_name = f"EnergyCA_gumbel_EnergyLoss_betaEnergy{energyca_params['BETA_ENERGY']:.0e}_maxSteps{global_params['MAX_STEPS']}"
 
     ## Training ##
     print("Currently training:", model_name)

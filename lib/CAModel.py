@@ -72,12 +72,16 @@ class CAModel(nn.Module):
         post_life_mask = self.alive(x)
         life_mask = (pre_life_mask & post_life_mask).float()
         x = x * life_mask
-        return x.transpose(1,3)
+        update_grid = (stochastic * life_mask.transpose(1,3)).type(torch.bool)
+        return x.transpose(1,3), update_grid.squeeze(-1)
 
-    def forward(self, x, steps=1, fire_rate=None, angle=0.0):
+    def forward(self, x, steps=1, fire_rate=None, angle=0.0, get_update_grid=False):
         for step in range(steps):
-            x = self.update(x, fire_rate, angle)
-        return x
+            x, update_grid = self.update(x, fire_rate, angle)
+        if get_update_grid:
+            return x, update_grid
+        else:
+            return x
 
 def CAModelTrainer(ca, x, target, steps, optimizer, scaler = None,scheduler=None,
                 global_params=None, training_params=None, model_params=None):
