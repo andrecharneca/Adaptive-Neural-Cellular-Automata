@@ -62,7 +62,7 @@ class CAModel(nn.Module):
             fire_rate=self.fire_rate
 
         # stochastic cell updates
-        stochastic = torch.rand([dx.size(0),dx.size(1),dx.size(2),1])>fire_rate
+        stochastic = torch.rand([dx.size(0),dx.size(1),dx.size(2),1]) < fire_rate
         stochastic = stochastic.float().to(self.device)
         dx = dx * stochastic
 

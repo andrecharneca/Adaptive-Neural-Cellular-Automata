@@ -208,7 +208,7 @@ def plot_avg_steps(avg_steps_log):
     plt.plot(avg_steps_log, 'g.', alpha=0.1)
     plt.show()
 
-def animate_steps(*arr_steps, colorbar_plots=None, interval=40):
+def animate_steps(*arr_steps, colorbar_plots=None, interval=40, titles = None, num_cols=None):
   ''' 
   Input: arrays to animate. List of indexes of the plots that need colorbars. It'll only show the first batch item
   arr_steps[i].shape = (max_steps, batch_size, img_size, img_size) 
@@ -216,20 +216,32 @@ def animate_steps(*arr_steps, colorbar_plots=None, interval=40):
   '''
   max_steps = arr_steps[0].shape[0]
   num_plots = len(arr_steps)
-  fig, axs = plt.subplots(1, num_plots)
+  num_cols = num_plots if num_cols is None else num_cols
+  num_rows = num_plots//num_cols+1 if num_plots%num_cols!=0 else num_plots//num_cols
+  fig, axs = plt.subplots(num_rows, num_cols)
+  axs = axs.flatten() if num_rows>1 else axs
   frames = []
   if num_plots==1: axs = [axs]
+  if titles is None: 
+    titles = [""]*len(axs)
+  else:
+    # pad titles to len(axs)
+    titles = titles + [""]*(len(axs)-len(titles))
+  for i in range(len(axs)):
+      axs[i].set_title(titles[i])
+      axs[i].get_xaxis().set_visible(False)
+      axs[i].get_yaxis().set_visible(False)
 
   for i in range(num_plots):
     axs[i].imshow(arr_steps[i][0,0])
-    axs[i].get_xaxis().set_visible(False)
-    axs[i].get_yaxis().set_visible(False)
 
   for k in range(max_steps):
     ims = []
-    ttl = plt.text(0.5, 1.01, f"Step {k}", horizontalalignment='center', verticalalignment='bottom', transform=axs[0].transAxes)
+    ttl = plt.text(0.5, -0.1, f"Step {k}", horizontalalignment='center', verticalalignment='bottom', transform=axs[0].transAxes)
     for i in range(num_plots):
-      ims.append(axs[i].imshow(arr_steps[i][k,0], animated=True, vmin=0, vmax=1))
+      vmin = arr_steps[i][k,0].min()
+      vmax = arr_steps[i][k,0].max()
+      ims.append(axs[i].imshow(arr_steps[i][k,0], animated=True, vmin=vmin, vmax=vmax))
     ims.append(ttl)  
     frames.append(ims)
 
@@ -243,7 +255,7 @@ def animate_steps(*arr_steps, colorbar_plots=None, interval=40):
   return HTML(anim.to_html5_video())
 
 
-def get_free_gpu():
+def get_free_gpu(min_free_mem=0.9):
     # get the gpu with the most free memory
     print("Getting free GPU...")
     GPUtil.showUtilization()
@@ -251,9 +263,9 @@ def get_free_gpu():
 
     # return first GPU with more than 90% free memory
     for gpu in GPUs:
-        if gpu.memoryFree > 0.9 * gpu.memoryTotal:
+        if gpu.memoryFree > min_free_mem * gpu.memoryTotal:
             print("Using GPU: ", gpu.id)
             return gpu.id
     else:
       # throw error
-      raise Exception("No GPU with more than 90% free memory found")
+      raise Exception(f"No GPU with more than {min_free_mem*100}% free memory found")

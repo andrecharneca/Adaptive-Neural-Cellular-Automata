@@ -29,7 +29,7 @@ training_params = {
     'n_epoch': 10000,
     'batch_size': 8,
     'grad_clip': 1.0,
-    'device': torch.device('cuda:{}'.format(get_free_gpu()) if torch.cuda.is_available() else 'cpu'),
+    'device': torch.device('cuda:{}'.format(get_free_gpu(min_free_mem=0.65)) if torch.cuda.is_available() else 'cpu'),
     'history_save_dir': 'histories/',
     'model_save_dir': f'models/no_gumbel_maxSteps{global_params["MAX_STEPS"]}/', ###
 }
@@ -54,7 +54,7 @@ x0 = torch.from_numpy(x0.astype(np.float32)).to(training_params['device'])
 from lib.CAModel import CAModel, CAModelTrainer, CAModelVisualizer
 
 ## Training ##
-const_fire_rates = [0.25, 0.634, 0.75, 1.0] #0.634 is the final fire rate of the best EnergyCA model
+const_fire_rates = [0.689] 
 for const_fire_rate in const_fire_rates:
     ca_params['CELL_FIRE_RATE'] = const_fire_rate
 
