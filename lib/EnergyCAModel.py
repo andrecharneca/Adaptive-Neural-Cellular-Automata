@@ -192,8 +192,8 @@ def EnergyCAModelVisualizer(output_dict, loss_logs, fig_path, progress_steps = 8
     # visualize fireRates
     for i in range(progress_steps):
       plt.subplot(n_rows, n_cols, i+1+2*n_cols)
-      plt.imshow(fireRates_steps[max_steps//progress_steps * (i+1)-1,0])
-      plt.text(0,0, "fireRates step="+str(max_steps//progress_steps * (i+1)-1))
+      plt.imshow(fireRates_steps[max_steps//progress_steps * (i+1)-1,0], cmap='jet', vmin=0, vmax=1)
+      plt.text(0,-0.2, "fireRates step="+str(max_steps//progress_steps * (i+1)-1))
       plt.axis('off')
       plt.colorbar()
     
@@ -221,3 +221,4 @@ def EnergyCAModelVisualizer(output_dict, loss_logs, fig_path, progress_steps = 8
 
     # save figure
     plt.savefig(fig_path)
+    plt.close()

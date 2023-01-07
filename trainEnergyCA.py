@@ -37,8 +37,8 @@ training_params = {
     'batch_size': 8,
     'grad_clip': 1.0,
     'device': torch.device('cuda:{}'.format(get_free_gpu()) if torch.cuda.is_available() else 'cpu'),
-    'history_save_dir': 'histories/',
-    'model_save_dir': 'models/gumbel_maxSteps{}/'.format(global_params["MAX_STEPS"]), ###
+    'history_save_dir': 'histories/ignore/',###
+    'model_save_dir': 'models/ignore/'#'models/gumbel_maxSteps{}/'.format(global_params["MAX_STEPS"]), ###
 }
 
 ## Model Parameters ##
@@ -64,7 +64,7 @@ x0 = torch.from_numpy(x0.astype(np.float32)).to(training_params['device'])
 from lib.EnergyCAModel import EnergyCAModel, EnergyCAModelTrainer, EnergyCAModelVisualizer
     
 # grid search on beta_energy
-beta_energies = [2e-10,5e-10]#[0,5e-10, 1e-9, 2e-9, 3e-9, 4e-9, 5e-9, 1e-8, 1e-7]
+beta_energies = [2e-10]#[0,5e-10, 1e-9, 2e-9, 3e-9, 4e-9, 5e-9, 1e-8, 1e-7]
 for beta_energy in beta_energies:
     energyca_params['BETA_ENERGY'] = beta_energy
     ca = EnergyCAModel(global_params['CHANNEL_N'], training_params['device'])
@@ -78,7 +78,7 @@ for beta_energy in beta_energies:
             x0, pad_target, model_name,
             optimizer, scheduler=scheduler,
             global_params=global_params, training_params=training_params, model_params=energyca_params,
-            Visualizer = EnergyCAModelVisualizer, visualize_step=100, figs_dir='figs/')
+            Visualizer = EnergyCAModelVisualizer, visualize_step=100, figs_dir='figs/test/')###
 
 # run this script with output to a file, and delete the previous output file
 # nohup python trainEnergyCA.py > trainEnergyCA.log 2>&1 &

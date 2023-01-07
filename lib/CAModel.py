@@ -143,3 +143,4 @@ def CAModelVisualizer(output_dict, loss_logs, fig_path):
 
     # save figure
     plt.savefig(fig_path)
+    plt.close()
