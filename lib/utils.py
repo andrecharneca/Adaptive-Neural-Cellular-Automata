@@ -239,9 +239,7 @@ def animate_steps(*arr_steps, colorbar_plots=None, interval=40, titles = None, n
     ims = []
     ttl = plt.text(0.5, -0.1, f"Step {k}", horizontalalignment='center', verticalalignment='bottom', transform=axs[0].transAxes)
     for i in range(num_plots):
-      vmin = arr_steps[i][k,0].min()
-      vmax = arr_steps[i][k,0].max()
-      ims.append(axs[i].imshow(arr_steps[i][k,0], animated=True, vmin=vmin, vmax=vmax))
+      ims.append(axs[i].imshow(arr_steps[i][k,0], animated=True, vmin=0, vmax=1, cmap='jet'))
     ims.append(ttl)  
     frames.append(ims)
 
