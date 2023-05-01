@@ -28,6 +28,8 @@ The models' implementations and auxiliary functions are implemented in `lib/`. `
 
 `train[model_name].py` are the files used to train each of the different models. Inside, several global and training parameters can be changed.
 
+## Report
+For more detailed information and results, read the [project report](data/AdaptNCA_ICML_2023.pdf).
 ## Acknowledgements
 
 This implementation was based of the original Growing NCA paper, and built upon the Growing NCA PyTorch implementation: https://github.com/chenmingxiang110/Growing-Neural-Cellular-Automata.git
