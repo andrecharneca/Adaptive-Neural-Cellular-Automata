@@ -19,7 +19,7 @@ This project was mainly built in PyTorch. The other Python libraries required to
 The models' implementations and auxiliary functions are implemented in `lib/`. `lib/EnergyCAModel.py` is the implementation of Adaptive-Energy NCA, and `lib/CAModel.py`is the implementation of regular NCA, with some improvements (added tanh activation and gradient clipping).
 
 <p align="center">
-  <img src="./images/adaptnca_architecture-3.png" alt="AdaptNCA architecture" width="700" border="1">
+  <img src="./images/adaptnca_architecture.png" alt="AdaptNCA architecture" width="700" border="1">
   <br>
   AdaptNCA model architecture. The hidden state vector is passed through an additional neuron to compute the cell's fire rate. An update bit is sampled from the fire rate using a Gumbel-Softmax distribution, and it determines if the cell will update. In the main network, a $tanh$ activation was added to the Dense-16 layer to bound the update vector.
 </p>
